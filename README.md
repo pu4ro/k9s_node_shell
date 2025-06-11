@@ -26,3 +26,10 @@
    ```bash
    cp ~/.config/k9s/config.yaml ~/.config/k9s/config.yaml.bak
 
+
+
+## 실행 방법
+```bash
+chmod +x ./setup_k9s_nodeshell.sh
+bash ./setup_k9s_nodeshell.sh
+
