@@ -1,0 +1,2 @@
+# k9s_node_shell
+setting_k9s_node_shell
