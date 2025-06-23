@@ -10,7 +10,7 @@ if [ $# -ne 1 ]; then
 fi
 
 IMAGE=$1
-XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.local/share}"
 K9S_CONFIG_FILE="$XDG_CONFIG_HOME/k9s/config.yaml"
 
 mkdir -p "$(dirname "$K9S_CONFIG_FILE")"
