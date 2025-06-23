@@ -31,7 +31,7 @@ EOF
 fi
 
 # 클러스터/컨텍스트 리스트 자동 탐색 및 nodeShell feature gate 활성화
-find "$XDG_DATA_HOME/k9s/clusters" -type f -name config.yaml | while read -r CLUSTER_CONFIG; do
+find "$XDG_CONFIG_HOME/k9s/clusters" -type f -name config.yaml | while read -r CLUSTER_CONFIG; do
     # featureGates가 없으면 추가, 있으면 nodeShell만 추가/수정
     if grep -q 'featureGates:' "$CLUSTER_CONFIG"; then
         # 이미 nodeShell 설정이 있다면 값만 true로 변경
