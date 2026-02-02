@@ -27,34 +27,50 @@ CPU_LIMIT="${CPU_LIMIT:-100m}"
 MEMORY_LIMIT="${MEMORY_LIMIT:-100Mi}"
 
 # k9s 설정 디렉토리 자동 탐색 (OS 무관)
-# 우선순위: XDG_CONFIG_HOME > ~/.config/k9s > ~/.k9s
-detect_k9s_dir() {
+# k9s v0.29.0+: config.yaml → XDG_CONFIG_HOME, clusters/ → XDG_DATA_HOME
+detect_k9s_config_dir() {
     local candidates=()
-
     if [ -n "$XDG_CONFIG_HOME" ]; then
         candidates+=("$XDG_CONFIG_HOME/k9s")
     fi
     candidates+=("$HOME/.config/k9s" "$HOME/.k9s")
-
     for dir in "${candidates[@]}"; do
         if [ -d "$dir" ]; then
             echo "$dir"
             return
         fi
     done
-
-    # 기존 디렉토리가 없으면 XDG 표준 경로 사용
     local default_dir="${XDG_CONFIG_HOME:-$HOME/.config}/k9s"
     mkdir -p "$default_dir"
     echo "$default_dir"
 }
 
-K9S_DIR=$(detect_k9s_dir)
-K9S_CONFIG_FILE="$K9S_DIR/config.yaml"
+detect_k9s_data_dir() {
+    local candidates=()
+    if [ -n "$XDG_DATA_HOME" ]; then
+        candidates+=("$XDG_DATA_HOME/k9s")
+    fi
+    candidates+=("$HOME/.local/share/k9s")
+    for dir in "${candidates[@]}"; do
+        if [ -d "$dir" ]; then
+            echo "$dir"
+            return
+        fi
+    done
+    local default_dir="${XDG_DATA_HOME:-$HOME/.local/share}/k9s"
+    mkdir -p "$default_dir"
+    echo "$default_dir"
+}
 
-echo "k9s 설정 디렉토리: $K9S_DIR"
+K9S_CONFIG_DIR=$(detect_k9s_config_dir)
+K9S_DATA_DIR=$(detect_k9s_data_dir)
+K9S_CONFIG_FILE="$K9S_CONFIG_DIR/config.yaml"
 
-mkdir -p "$K9S_DIR"
+echo "k9s 설정 디렉토리: $K9S_CONFIG_DIR"
+echo "k9s 데이터 디렉토리: $K9S_DATA_DIR"
+
+mkdir -p "$K9S_CONFIG_DIR"
+mkdir -p "$K9S_DATA_DIR"
 
 # shellPod 설정 적용
 if [ -f "$K9S_CONFIG_FILE" ] && grep -q 'shellPod:' "$K9S_CONFIG_FILE" 2>/dev/null; then
@@ -85,16 +101,14 @@ fi
 echo "shellPod image: $IMAGE"
 
 # 클러스터/컨텍스트별 nodeShell feature gate 활성화
-# k9s 버전에 따라 clusters 디렉토리 위치가 다를 수 있음
+# k9s v0.29.0+: 클러스터 설정은 XDG_DATA_HOME/k9s/clusters/ 에 저장됨
 CLUSTER_CONFIGS=()
-for clusters_dir in "$K9S_DIR/clusters" "$K9S_DIR"/clusters/*/; do
-    if [ -d "$clusters_dir" ]; then
-        while IFS= read -r -d '' cfg; do
-            CLUSTER_CONFIGS+=("$cfg")
-        done < <(find "$clusters_dir" -type f -name config.yaml -print0 2>/dev/null)
-        break
-    fi
-done
+CLUSTERS_DIR="$K9S_DATA_DIR/clusters"
+if [ -d "$CLUSTERS_DIR" ]; then
+    while IFS= read -r -d '' cfg; do
+        CLUSTER_CONFIGS+=("$cfg")
+    done < <(find "$CLUSTERS_DIR" -type f -name config.yaml -print0 2>/dev/null)
+fi
 
 if [ ${#CLUSTER_CONFIGS[@]} -eq 0 ]; then
     echo "[경고] 클러스터 설정 파일을 찾을 수 없습니다."
@@ -106,7 +120,7 @@ if [ ${#CLUSTER_CONFIGS[@]} -eq 0 ]; then
         CONTEXT=$(kubectl config current-context 2>/dev/null)
         CLUSTER=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"$CONTEXT\")].context.cluster}" 2>/dev/null)
         if [ -n "$CONTEXT" ] && [ -n "$CLUSTER" ]; then
-            CLUSTER_DIR="$K9S_DIR/clusters/$CLUSTER/$CONTEXT"
+            CLUSTER_DIR="$CLUSTERS_DIR/$CLUSTER/$CONTEXT"
             mkdir -p "$CLUSTER_DIR"
             CLUSTER_CFG="$CLUSTER_DIR/config.yaml"
             if [ ! -f "$CLUSTER_CFG" ]; then
